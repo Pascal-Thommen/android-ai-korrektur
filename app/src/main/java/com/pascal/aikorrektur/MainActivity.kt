@@ -41,9 +41,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnCopyResult: Button
 
     private val availableModels = listOf(
-        "gemini-1.5-flash",
-        "gemini-2.0-flash",
-        "gemini-1.5-pro"
+        "gemini-3.8-flash",
+        "gemini-flash-latest",
+        "gemini-3.5-flash-lite",
+        "gemini-3.1-pro-preview"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -89,14 +90,25 @@ class MainActivity : AppCompatActivity() {
         btnSaveApiKey.setOnClickListener {
             val key = etApiKey.text.toString().trim()
             AppPreferences.setApiKey(this, key)
+            val model = actvModel.text.toString().trim()
+            if (model.isNotBlank()) {
+                AppPreferences.setModel(this, model)
+            }
             updateStatusBadge(key.isNotBlank())
-            Toast.makeText(this, "API-Key gespeichert.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Einstellungen gespeichert.", Toast.LENGTH_SHORT).show()
         }
 
         actvModel.setOnItemClickListener { _, _, position, _ ->
             val selectedModel = availableModels[position]
             AppPreferences.setModel(this, selectedModel)
             Toast.makeText(this, "Modell geändert: $selectedModel", Toast.LENGTH_SHORT).show()
+        }
+
+        actvModel.doAfterTextChanged { text ->
+            val model = text?.toString()?.trim().orEmpty()
+            if (model.isNotBlank()) {
+                AppPreferences.setModel(this, model)
+            }
         }
 
         etSystemPrompt.doAfterTextChanged { text ->
