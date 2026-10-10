@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/flFloatingContainer"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:padding="4dp">
+
+    <TextView
+        android:id="@+id/tvFloatingButton"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:background="@drawable/bg_floating_button"
+        android:gravity="center"
+        android:text="✨"
+        android:textColor="@android:color/white"
+        android:textSize="22sp"
+        android:elevation="8dp" />
+
+    <ProgressBar
+        android:id="@+id/pbFloatingLoading"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_gravity="center"
+        android:visibility="gone"
+        android:indeterminateTint="@android:color/white" />
+
+</FrameLayout>

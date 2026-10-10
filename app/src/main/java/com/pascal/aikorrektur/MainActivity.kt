@@ -3,7 +3,9 @@ package com.pascal.aikorrektur
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
@@ -41,6 +43,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pbTestProgress: ProgressBar
     private lateinit var tvTestResult: TextView
     private lateinit var btnCopyResult: Button
+    private lateinit var btnOpenAccessibility: Button
 
     private val availableModels = mutableListOf(
         "gemini-3.8-flash",
@@ -65,6 +68,7 @@ class MainActivity : AppCompatActivity() {
         actvModel = findViewById(R.id.actvModel)
         etSystemPrompt = findViewById(R.id.etSystemPrompt)
         btnResetPrompt = findViewById(R.id.btnResetPrompt)
+        btnOpenAccessibility = findViewById(R.id.btnOpenAccessibility)
         etTestInput = findViewById(R.id.etTestInput)
         btnTestCorrect = findViewById(R.id.btnTestCorrect)
         pbTestProgress = findViewById(R.id.pbTestProgress)
@@ -135,6 +139,16 @@ class MainActivity : AppCompatActivity() {
             etSystemPrompt.setText(AppPreferences.DEFAULT_PROMPT)
             AppPreferences.setSystemPrompt(this, AppPreferences.DEFAULT_PROMPT)
             Toast.makeText(this, "Standard-Prompt wiederhergestellt.", Toast.LENGTH_SHORT).show()
+        }
+
+        btnOpenAccessibility.setOnClickListener {
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            startActivity(intent)
+            Toast.makeText(
+                this,
+                "Wähle 'KI-Korrektur' in der Liste und aktiviere den Schalter.",
+                Toast.LENGTH_LONG
+            ).show()
         }
 
         btnTestCorrect.setOnClickListener {

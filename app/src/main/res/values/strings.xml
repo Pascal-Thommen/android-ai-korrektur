@@ -19,4 +19,9 @@
     <string name="usage_step_3">3. Der fehlerhafte Text wird direkt an Ort und Stelle ersetzt.</string>
     <string name="dialog_processing_text">Text wird korrigiert...</string>
     <string name="btn_cancel">Abbrechen</string>
+    <string name="accessibility_service_label">KI-Korrektur 1-Klick Assistent</string>
+    <string name="accessibility_description">Liest das aktive Textfeld automatisch aus und ersetzt den Inhalt mit einem Fingertipp durch den korrigierten Text.</string>
+    <string name="btn_open_accessibility">1-Klick Assistent aktivieren</string>
+    <string name="accessibility_card_title">1-Klick Korrektur (Schwebender Button)</string>
+    <string name="accessibility_card_desc">Aktiviert einen dezenten Button (✨). Korrigiert das aktuelle Schreibfeld mit einem Fingertipp ohne vorheriges Textmarkieren.</string>
 </resources>
