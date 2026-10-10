@@ -4,6 +4,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
@@ -34,6 +35,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var etApiKey: EditText
     private lateinit var btnSaveApiKey: Button
+    private lateinit var btnGetApiKey: Button
     private lateinit var tvStatusBadge: TextView
     private lateinit var actvModel: AutoCompleteTextView
     private lateinit var etSystemPrompt: EditText
@@ -64,6 +66,7 @@ class MainActivity : AppCompatActivity() {
     private fun initViews() {
         etApiKey = findViewById(R.id.etApiKey)
         btnSaveApiKey = findViewById(R.id.btnSaveApiKey)
+        btnGetApiKey = findViewById(R.id.btnGetApiKey)
         tvStatusBadge = findViewById(R.id.tvStatusBadge)
         actvModel = findViewById(R.id.actvModel)
         etSystemPrompt = findViewById(R.id.etSystemPrompt)
@@ -111,6 +114,11 @@ class MainActivity : AppCompatActivity() {
             } else {
                 Toast.makeText(this, "Einstellungen gespeichert.", Toast.LENGTH_SHORT).show()
             }
+        }
+
+        btnGetApiKey.setOnClickListener {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://aistudio.google.com/app/apikey"))
+            startActivity(intent)
         }
 
         actvModel.setOnItemClickListener { _, _, position, _ ->

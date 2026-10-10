@@ -24,4 +24,11 @@
     <string name="btn_open_accessibility">1-Klick Assistent aktivieren</string>
     <string name="accessibility_card_title">1-Klick Korrektur (Schwebender Button)</string>
     <string name="accessibility_card_desc">Aktiviert einen dezenten Button (✨). Korrigiert das aktuelle Schreibfeld mit einem Fingertipp ohne vorheriges Textmarkieren.</string>
+    <string name="btn_get_api_key">Kostenlosen API-Key bei Google erstellen ↗</string>
+    <string name="title_api_key_guide">So erhältst du deinen kostenlosen Key</string>
+    <string name="api_key_step_1">1. Auf den Button oben tippen, um Google AI Studio zu öffnen.</string>
+    <string name="api_key_step_2">2. Mit Google anmelden und auf \"Create API key\" tippen.</string>
+    <string name="api_key_step_3">3. Den erzeugten Schlüssel kopieren, hier einfügen und speichern.</string>
+    <string name="privacy_title">100% Datenschutz (Zero-Server-Prinzip)</string>
+    <string name="privacy_desc">Diese App besitzt keinen eigenen Server. Deine Texte und dein API-Key gehen direkt von deinem Smartphone zu Google Gemini. Niemand sonst hat Zugriff auf deine Daten.</string>
 </resources>
