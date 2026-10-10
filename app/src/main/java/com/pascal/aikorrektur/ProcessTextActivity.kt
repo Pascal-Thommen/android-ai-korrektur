@@ -72,7 +72,10 @@ class ProcessTextActivity : AppCompatActivity() {
                 apiKey = apiKey,
                 inputText = selectedText,
                 model = model,
-                systemInstruction = prompt
+                systemInstruction = prompt,
+                onFallbackModelUsed = { fallbackModel ->
+                    AppPreferences.setModel(this@ProcessTextActivity, fallbackModel)
+                }
             )
 
             result.onSuccess { correctedText ->

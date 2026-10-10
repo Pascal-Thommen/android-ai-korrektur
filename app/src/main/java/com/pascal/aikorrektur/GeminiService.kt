@@ -11,17 +11,89 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Service für Anfragen an die Google Gemini REST API.
+ * Service für Anfragen an die Google Gemini REST & Interactions API.
+ * Beinhaltet dynamische Modellabfrage und automatische Modell-Selbstheilung.
  */
 object GeminiService {
     private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
     private const val INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
 
+    /**
+     * Ruft alle aktuell für den API-Key verfügbaren Gemini-Modelle dynamisch von Google ab.
+     */
+    suspend fun fetchAvailableModels(apiKey: String): Result<List<String>> = withContext(Dispatchers.IO) {
+        if (apiKey.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Kein API-Key vorhanden."))
+        }
+        try {
+            val url = URL("$BASE_URL?key=$apiKey")
+            val connection = (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                setRequestProperty("Accept", "application/json")
+                connectTimeout = 10000
+                readTimeout = 15000
+            }
+
+            if (connection.responseCode in 200..299) {
+                val responseBody = BufferedReader(InputStreamReader(connection.inputStream, Charsets.UTF_8))
+                    .use { it.readText() }
+                val json = JSONObject(responseBody)
+                val modelsArray = json.optJSONArray("models") ?: JSONArray()
+                val resultList = mutableListOf<String>()
+
+                for (i in 0 until modelsArray.length()) {
+                    val m = modelsArray.getJSONObject(i)
+                    val methods = m.optJSONArray("supportedGenerationMethods")
+                    var canGenerate = false
+                    if (methods != null) {
+                        for (j in 0 until methods.length()) {
+                            if (methods.optString(j) == "generateContent") {
+                                canGenerate = true
+                                break
+                            }
+                        }
+                    }
+                    if (canGenerate) {
+                        val rawName = m.optString("name", "")
+                        val cleanName = rawName.removePrefix("models/")
+                        if (cleanName.startsWith("gemini") &&
+                            !cleanName.contains("embedding") &&
+                            !cleanName.contains("image") &&
+                            !cleanName.contains("tts") &&
+                            !cleanName.contains("transcribe")
+                        ) {
+                            resultList.add(cleanName)
+                        }
+                    }
+                }
+
+                if (resultList.isEmpty()) {
+                    Result.success(listOf("gemini-3.8-flash", "gemini-flash-latest", "gemini-3.5-flash-lite"))
+                } else {
+                    // Sortieren: Flash-Modelle nach oben priorisieren
+                    resultList.sortWith(Comparator { a, b ->
+                        when {
+                            a.contains("flash") && !b.contains("flash") -> -1
+                            !a.contains("flash") && b.contains("flash") -> 1
+                            else -> b.compareTo(a)
+                        }
+                    })
+                    Result.success(resultList)
+                }
+            } else {
+                Result.failure(Exception("HTTP ${connection.responseCode} beim Abrufen der Modelle"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun correctText(
         apiKey: String,
         inputText: String,
         model: String = AppPreferences.DEFAULT_MODEL,
-        systemInstruction: String = AppPreferences.DEFAULT_PROMPT
+        systemInstruction: String = AppPreferences.DEFAULT_PROMPT,
+        onFallbackModelUsed: ((String) -> Unit)? = null
     ): Result<String> = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) {
             return@withContext Result.failure(
@@ -36,20 +108,50 @@ object GeminiService {
 
         val cleanModel = model.trim().removePrefix("models/").ifBlank { AppPreferences.DEFAULT_MODEL }
 
-        // 1. Zuerst generateContent mit aktuellem Modell versuchen
-        val generateContentResult = callGenerateContent(apiKey, trimmedInput, cleanModel, systemInstruction)
+        // 1. Primärer Aufruf mit dem gewählten Modell
+        val firstResult = executeGeneration(apiKey, trimmedInput, cleanModel, systemInstruction)
+        if (firstResult.isSuccess) {
+            return@withContext firstResult
+        }
+
+        // 2. Prüfen, ob Fehler durch ein nicht mehr existierendes Modell ausgelöst wurde (404 / no longer available)
+        val errorMessage = firstResult.exceptionOrNull()?.message.orEmpty()
+        val isModelUnavailable = errorMessage.contains("404") ||
+                errorMessage.contains("no longer available") ||
+                errorMessage.contains("not found")
+
+        if (isModelUnavailable) {
+            // Dynamisch verfügbare Modelle abfragen oder Standard-Fallback nutzen
+            val liveModels = fetchAvailableModels(apiKey).getOrNull()
+            val fallbackModel = liveModels?.firstOrNull { it != cleanModel } ?: "gemini-3.8-flash"
+
+            val fallbackResult = executeGeneration(apiKey, trimmedInput, fallbackModel, systemInstruction)
+            if (fallbackResult.isSuccess) {
+                onFallbackModelUsed?.invoke(fallbackModel)
+                return@withContext fallbackResult
+            }
+        }
+
+        return@withContext firstResult
+    }
+
+    private fun executeGeneration(
+        apiKey: String,
+        trimmedInput: String,
+        model: String,
+        systemInstruction: String
+    ): Result<String> {
+        val generateContentResult = callGenerateContent(apiKey, trimmedInput, model, systemInstruction)
         if (generateContentResult.isSuccess) {
-            return@withContext generateContentResult
+            return generateContentResult
         }
 
-        // 2. Fallback: Interactions API versuchen
-        val interactionsResult = callInteractionsApi(apiKey, trimmedInput, cleanModel, systemInstruction)
+        val interactionsResult = callInteractionsApi(apiKey, trimmedInput, model, systemInstruction)
         if (interactionsResult.isSuccess) {
-            return@withContext interactionsResult
+            return interactionsResult
         }
 
-        // Wenn beides fehlschlägt, den ursprünglichen Fehler zurückgeben
-        return@withContext generateContentResult
+        return generateContentResult
     }
 
     private fun callGenerateContent(

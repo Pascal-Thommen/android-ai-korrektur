@@ -22,11 +22,13 @@ import kotlinx.coroutines.launch
 
 /**
  * Einstellungen und Test-Playground für die Gemini KI-Korrektur.
+ * Mit dynamischer Modell-Abfrage und automatischer Modell-Erkennung.
  */
 class MainActivity : AppCompatActivity() {
 
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var testJob: Job? = null
+    private var fetchModelsJob: Job? = null
 
     private lateinit var etApiKey: EditText
     private lateinit var btnSaveApiKey: Button
@@ -40,7 +42,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvTestResult: TextView
     private lateinit var btnCopyResult: Button
 
-    private val availableModels = listOf(
+    private val availableModels = mutableListOf(
         "gemini-3.8-flash",
         "gemini-flash-latest",
         "gemini-3.5-flash-lite",
@@ -69,7 +71,6 @@ class MainActivity : AppCompatActivity() {
         tvTestResult = findViewById(R.id.tvTestResult)
         btnCopyResult = findViewById(R.id.btnCopyResult)
 
-        // Dropdown Adapter für Gemini-Modelle
         val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, availableModels)
         actvModel.setAdapter(adapter)
     }
@@ -84,6 +85,10 @@ class MainActivity : AppCompatActivity() {
 
         val prompt = AppPreferences.getSystemPrompt(this)
         etSystemPrompt.setText(prompt)
+
+        if (apiKey.isNotBlank()) {
+            refreshModelsDynamically(apiKey)
+        }
     }
 
     private fun setupListeners() {
@@ -95,13 +100,21 @@ class MainActivity : AppCompatActivity() {
                 AppPreferences.setModel(this, model)
             }
             updateStatusBadge(key.isNotBlank())
-            Toast.makeText(this, "Einstellungen gespeichert.", Toast.LENGTH_SHORT).show()
+
+            if (key.isNotBlank()) {
+                refreshModelsDynamically(key)
+                Toast.makeText(this, "Gespeichert. Modelle werden von Google geladen...", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Einstellungen gespeichert.", Toast.LENGTH_SHORT).show()
+            }
         }
 
         actvModel.setOnItemClickListener { _, _, position, _ ->
-            val selectedModel = availableModels[position]
-            AppPreferences.setModel(this, selectedModel)
-            Toast.makeText(this, "Modell geändert: $selectedModel", Toast.LENGTH_SHORT).show()
+            if (position in 0 until availableModels.size) {
+                val selectedModel = availableModels[position]
+                AppPreferences.setModel(this, selectedModel)
+                Toast.makeText(this, "Modell geändert: $selectedModel", Toast.LENGTH_SHORT).show()
+            }
         }
 
         actvModel.doAfterTextChanged { text ->
@@ -139,6 +152,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun refreshModelsDynamically(apiKey: String) {
+        fetchModelsJob?.cancel()
+        fetchModelsJob = scope.launch {
+            val result = GeminiService.fetchAvailableModels(apiKey)
+            result.onSuccess { liveModels ->
+                if (liveModels.isNotEmpty()) {
+                    availableModels.clear()
+                    availableModels.addAll(liveModels)
+
+                    val adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_dropdown_item_1line, availableModels)
+                    actvModel.setAdapter(adapter)
+
+                    val currentModel = AppPreferences.getModel(this@MainActivity)
+                    if (currentModel !in availableModels) {
+                        val fallback = availableModels.first()
+                        AppPreferences.setModel(this@MainActivity, fallback)
+                        actvModel.setText(fallback, false)
+                    }
+                }
+            }
+        }
+    }
+
     private fun updateStatusBadge(isConfigured: Boolean) {
         if (isConfigured) {
             tvStatusBadge.text = "Bereit (API-Key aktiv)"
@@ -171,7 +207,18 @@ class MainActivity : AppCompatActivity() {
         testJob = scope.launch {
             val model = AppPreferences.getModel(this@MainActivity)
             val prompt = AppPreferences.getSystemPrompt(this@MainActivity)
-            val result = GeminiService.correctText(apiKey, inputText, model, prompt)
+
+            val result = GeminiService.correctText(
+                apiKey = apiKey,
+                inputText = inputText,
+                model = model,
+                systemInstruction = prompt,
+                onFallbackModelUsed = { fallbackModel ->
+                    AppPreferences.setModel(this@MainActivity, fallbackModel)
+                    actvModel.setText(fallbackModel, false)
+                    Toast.makeText(this@MainActivity, "Modell automatisch angepasst: $fallbackModel", Toast.LENGTH_SHORT).show()
+                }
+            )
 
             pbTestProgress.visibility = View.GONE
             btnTestCorrect.isEnabled = true
