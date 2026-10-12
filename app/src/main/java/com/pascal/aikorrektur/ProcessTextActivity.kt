@@ -53,9 +53,11 @@ class ProcessTextActivity : AppCompatActivity() {
         setContentView(R.layout.dialog_process_text)
 
         val tvStatus = findViewById<TextView>(R.id.tvDialogStatus)
+        val tvSubtitle = findViewById<TextView>(R.id.tvDialogSubtitle)
         val btnCancel = findViewById<Button>(R.id.btnDialogCancel)
 
         tvStatus.text = "KI-Korrektur läuft..."
+        tvSubtitle.text = "${AppPreferences.getModel(this)} korrigiert..."
 
         btnCancel.setOnClickListener {
             correctionJob?.cancel()

@@ -136,6 +136,41 @@
                 android:textSize="14sp"
                 android:textStyle="bold" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Hier kannst du die KI-Instruktion anpassen (z. B. Schweizer Rechtschreibung ohne ß):"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnPromptSwiss"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:text="🇨🇭 Schweiz (kein ß)"
+                    android:textSize="11sp" />
+
+                <Button
+                    android:id="@+id/btnPromptStandard"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:text="🇩🇪 Standard (mit ß)"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
             <EditText
                 android:id="@+id/etSystemPrompt"
                 android:layout_width="match_parent"
@@ -148,14 +183,33 @@
                 android:textColor="@color/on_surface"
                 android:textSize="13sp" />
 
-            <Button
-                android:id="@+id/btnResetPrompt"
-                style="?attr/materialButtonOutlinedStyle"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:text="@string/btn_reset_prompt"
-                android:textSize="12sp" />
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnSavePrompt"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:backgroundTint="@color/primary"
+                    android:text="Prompt speichern"
+                    android:textColor="@android:color/white"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnResetPrompt"
+                    style="?attr/materialButtonOutlinedStyle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:text="@string/btn_reset_prompt"
+                    android:textSize="12sp" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- Card: 1-Klick Bedienungshilfe (Schwebender Button) -->

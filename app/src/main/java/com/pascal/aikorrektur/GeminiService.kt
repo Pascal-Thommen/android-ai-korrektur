@@ -11,12 +11,18 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Service für Anfragen an die Google Gemini REST & Interactions API.
- * Beinhaltet dynamische Modellabfrage und automatische Modell-Selbstheilung.
+ * Service für blitzschnelle Anfragen an die Google Gemini REST API.
+ * Mit automatischer Thinking-Abschaltung für Sub-Sekunden-Latenz und intelligenter Modell-Selbstheilung.
  */
 object GeminiService {
     private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
-    private const val INTERACTIONS_URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
+
+    private val FAST_FALLBACK_MODELS = listOf(
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-flash-latest"
+    )
 
     /**
      * Ruft alle aktuell für den API-Key verfügbaren Gemini-Modelle dynamisch von Google ab.
@@ -30,8 +36,8 @@ object GeminiService {
             val connection = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 setRequestProperty("Accept", "application/json")
-                connectTimeout = 10000
-                readTimeout = 15000
+                connectTimeout = 6000
+                readTimeout = 10000
             }
 
             if (connection.responseCode in 200..299) {
@@ -68,7 +74,7 @@ object GeminiService {
                 }
 
                 if (resultList.isEmpty()) {
-                    Result.success(listOf("gemini-3.8-flash", "gemini-flash-latest", "gemini-3.5-flash-lite"))
+                    Result.success(FAST_FALLBACK_MODELS)
                 } else {
                     // Sortieren: Flash-Modelle nach oben priorisieren
                     resultList.sortWith(Comparator { a, b ->
@@ -108,26 +114,29 @@ object GeminiService {
 
         val cleanModel = model.trim().removePrefix("models/").ifBlank { AppPreferences.DEFAULT_MODEL }
 
-        // 1. Primärer Aufruf mit dem gewählten Modell
-        val firstResult = executeGeneration(apiKey, trimmedInput, cleanModel, systemInstruction)
+        // 1. Primärer Aufruf mit dem gewählten Modell (mit deaktiviertem Thinking für maximale Geschwindigkeit)
+        var firstResult = callGenerateContent(apiKey, trimmedInput, cleanModel, systemInstruction, disableThinking = true)
+
+        // Falls Fehler durch thinkingConfig auftritt (z.B. Modell unterstützt thinkingConfig nicht): sofort ohne wiederholen
+        val firstError = firstResult.exceptionOrNull()?.message.orEmpty()
+        if (firstResult.isFailure && (firstError.contains("thinkingConfig") || firstError.contains("thinkingBudget") || firstError.contains("INVALID_ARGUMENT"))) {
+            firstResult = callGenerateContent(apiKey, trimmedInput, cleanModel, systemInstruction, disableThinking = false)
+        }
+
         if (firstResult.isSuccess) {
             return@withContext firstResult
         }
 
-        // 2. Prüfen, ob Fehler durch ein nicht mehr existierendes Modell ausgelöst wurde (404 / no longer available)
-        val errorMessage = firstResult.exceptionOrNull()?.message.orEmpty()
-        val isModelUnavailable = errorMessage.contains("404") ||
-                errorMessage.contains("no longer available") ||
-                errorMessage.contains("not found")
-
-        if (isModelUnavailable) {
-            // Dynamisch verfügbare Modelle abfragen oder Standard-Fallback nutzen
-            val liveModels = fetchAvailableModels(apiKey).getOrNull()
-            val fallbackModel = liveModels?.firstOrNull { it != cleanModel } ?: "gemini-3.8-flash"
-
-            val fallbackResult = executeGeneration(apiKey, trimmedInput, fallbackModel, systemInstruction)
+        // 2. Automatisches Self-Healing: Wenn Modell nicht existiert (404), timeoutet oder Fehler wirft
+        for (fallback in FAST_FALLBACK_MODELS) {
+            if (fallback == cleanModel) continue
+            var fallbackResult = callGenerateContent(apiKey, trimmedInput, fallback, systemInstruction, disableThinking = true)
+            val fallbackError = fallbackResult.exceptionOrNull()?.message.orEmpty()
+            if (fallbackResult.isFailure && (fallbackError.contains("thinkingConfig") || fallbackError.contains("thinkingBudget") || fallbackError.contains("INVALID_ARGUMENT"))) {
+                fallbackResult = callGenerateContent(apiKey, trimmedInput, fallback, systemInstruction, disableThinking = false)
+            }
             if (fallbackResult.isSuccess) {
-                onFallbackModelUsed?.invoke(fallbackModel)
+                onFallbackModelUsed?.invoke(fallback)
                 return@withContext fallbackResult
             }
         }
@@ -135,30 +144,12 @@ object GeminiService {
         return@withContext firstResult
     }
 
-    private fun executeGeneration(
-        apiKey: String,
-        trimmedInput: String,
-        model: String,
-        systemInstruction: String
-    ): Result<String> {
-        val generateContentResult = callGenerateContent(apiKey, trimmedInput, model, systemInstruction)
-        if (generateContentResult.isSuccess) {
-            return generateContentResult
-        }
-
-        val interactionsResult = callInteractionsApi(apiKey, trimmedInput, model, systemInstruction)
-        if (interactionsResult.isSuccess) {
-            return interactionsResult
-        }
-
-        return generateContentResult
-    }
-
     private fun callGenerateContent(
         apiKey: String,
         trimmedInput: String,
         model: String,
-        systemInstruction: String
+        systemInstruction: String,
+        disableThinking: Boolean = true
     ): Result<String> {
         return try {
             val endpoint = "$BASE_URL/$model:generateContent?key=$apiKey"
@@ -167,10 +158,21 @@ object GeminiService {
                 requestMethod = "POST"
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 setRequestProperty("Accept", "application/json")
-                connectTimeout = 12000
-                readTimeout = 20000
+                connectTimeout = 7000
+                readTimeout = 14000
                 doOutput = true
                 doInput = true
+            }
+
+            val generationConfig = JSONObject().apply {
+                put("temperature", 0.1)
+                put("maxOutputTokens", 1024)
+                // Bei modernen Gemini Modellen Thinking-Budget auf 0 setzen -> keine Denkpause, sofortige Antwort
+                if (disableThinking && !model.startsWith("gemini-1.")) {
+                    put("thinkingConfig", JSONObject().apply {
+                        put("thinkingBudget", 0)
+                    })
+                }
             }
 
             val payload = JSONObject().apply {
@@ -190,10 +192,7 @@ object GeminiService {
                         })
                     })
                 })
-                put("generationConfig", JSONObject().apply {
-                    put("temperature", 0.1)
-                    put("maxOutputTokens", 4096)
-                })
+                put("generationConfig", generationConfig)
             }
 
             OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer ->
@@ -213,8 +212,23 @@ object GeminiService {
                     val content = candidate.optJSONObject("content")
                     val parts = content?.optJSONArray("parts")
                     if (parts != null && parts.length() > 0) {
-                        val corrected = parts.getJSONObject(0).optString("text", "")
-                        return Result.success(corrected.trim())
+                        val textBuilder = StringBuilder()
+                        for (p in 0 until parts.length()) {
+                            val partObj = parts.getJSONObject(p)
+                            // Falls Thought-Part existiert, überspringen und nur den finalen Text nehmen
+                            if (!partObj.optBoolean("thought", false)) {
+                                val t = partObj.optString("text", "")
+                                if (t.isNotEmpty()) textBuilder.append(t)
+                            }
+                        }
+                        if (textBuilder.isNotEmpty()) {
+                            return Result.success(textBuilder.toString().trim())
+                        }
+                        // Fallback falls keine thought-Flags
+                        val directText = parts.getJSONObject(0).optString("text", "")
+                        if (directText.isNotBlank()) {
+                            return Result.success(directText.trim())
+                        }
                     }
                 }
                 Result.failure(Exception("Keine Antwort von Gemini erhalten."))
@@ -232,86 +246,6 @@ object GeminiService {
                 }
 
                 Result.failure(Exception("API Fehler ($responseCode): $message"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    private fun callInteractionsApi(
-        apiKey: String,
-        trimmedInput: String,
-        model: String,
-        systemInstruction: String
-    ): Result<String> {
-        return try {
-            val endpoint = "$INTERACTIONS_URL?key=$apiKey"
-            val url = URL(endpoint)
-            val connection = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                setRequestProperty("Accept", "application/json")
-                setRequestProperty("x-goog-api-key", apiKey)
-                setRequestProperty("Api-Revision", "2026-05-20")
-                connectTimeout = 12000
-                readTimeout = 20000
-                doOutput = true
-                doInput = true
-            }
-
-            val payload = JSONObject().apply {
-                put("model", model)
-                put("input", trimmedInput)
-                put("system_instruction", systemInstruction)
-                put("store", false)
-            }
-
-            OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer ->
-                writer.write(payload.toString())
-                writer.flush()
-            }
-
-            val responseCode = connection.responseCode
-            if (responseCode in 200..299) {
-                val responseBody = BufferedReader(InputStreamReader(connection.inputStream, Charsets.UTF_8))
-                    .use { it.readText() }
-
-                val responseJson = JSONObject(responseBody)
-                val directOutput = responseJson.optString("output_text", "")
-                if (directOutput.isNotBlank()) {
-                    return Result.success(directOutput.trim())
-                }
-
-                val steps = responseJson.optJSONArray("steps")
-                if (steps != null && steps.length() > 0) {
-                    for (i in steps.length() - 1 downTo 0) {
-                        val step = steps.optJSONObject(i) ?: continue
-                        if (step.optString("type") == "model_output") {
-                            val content = step.optJSONArray("content")
-                            if (content != null && content.length() > 0) {
-                                val text = content.getJSONObject(0).optString("text", "")
-                                if (text.isNotBlank()) {
-                                    return Result.success(text.trim())
-                                }
-                            }
-                        }
-                    }
-                }
-                Result.failure(Exception("Keine Text-Antwort in Interactions API gefunden."))
-            } else {
-                val errorBody = connection.errorStream?.let { stream ->
-                    BufferedReader(InputStreamReader(stream, Charsets.UTF_8)).use { it.readText() }
-                } ?: "HTTP $responseCode"
-
-                val message = try {
-                    val errJson = JSONObject(errorBody)
-                    val errObj = errJson.optJSONObject("error")
-                    errObj?.optString("message", errorBody) ?: errorBody
-                } catch (e: Exception) {
-                    errorBody
-                }
-
-                Result.failure(Exception("Interactions API Fehler ($responseCode): $message"))
             }
         } catch (e: Exception) {
             Result.failure(e)

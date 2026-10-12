@@ -27,10 +27,11 @@
         android:textStyle="bold" />
 
     <TextView
+        android:id="@+id/tvDialogSubtitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="Gemini 1.5 Flash analysiert..."
+        android:text="KI korrigiert Text..."
         android:textColor="@color/text_secondary"
         android:textSize="12sp" />
 

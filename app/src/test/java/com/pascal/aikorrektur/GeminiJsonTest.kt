@@ -3,7 +3,9 @@ package com.pascal.aikorrektur
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GeminiJsonTest {
@@ -32,7 +34,10 @@ class GeminiJsonTest {
             })
             put("generationConfig", JSONObject().apply {
                 put("temperature", 0.1)
-                put("maxOutputTokens", 4096)
+                put("maxOutputTokens", 1024)
+                put("thinkingConfig", JSONObject().apply {
+                    put("thinkingBudget", 0)
+                })
             })
         }
 
@@ -45,5 +50,25 @@ class GeminiJsonTest {
         val sysInstruction = payload.getJSONObject("systemInstruction")
         val sysPart = sysInstruction.getJSONArray("parts").getJSONObject(0)
         assertEquals(systemInstruction, sysPart.getString("text"))
+
+        val genConfig = payload.getJSONObject("generationConfig")
+        val thinking = genConfig.getJSONObject("thinkingConfig")
+        assertEquals(0, thinking.getInt("thinkingBudget"))
+    }
+
+    @Test
+    fun testSwissPromptRequiresDoubleS() {
+        val prompt = AppPreferences.PROMPT_SWISS
+        assertTrue(prompt.contains("Doppel-S (ss)"))
+        assertTrue(prompt.contains("niemals das scharfe S"))
+        assertTrue(prompt.contains("ausschliesslich"))
+        assertTrue(prompt.contains("Begrüssung"))
+        assertFalse(prompt.contains("ausschließlich"))
+        assertFalse(prompt.contains("Begrüßung"))
+    }
+
+    @Test
+    fun testDefaultModelIsFastModel() {
+        assertEquals("gemini-2.5-flash", AppPreferences.DEFAULT_MODEL)
     }
 }

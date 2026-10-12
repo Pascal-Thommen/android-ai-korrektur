@@ -39,6 +39,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvStatusBadge: TextView
     private lateinit var actvModel: AutoCompleteTextView
     private lateinit var etSystemPrompt: EditText
+    private lateinit var btnPromptSwiss: Button
+    private lateinit var btnPromptStandard: Button
+    private lateinit var btnSavePrompt: Button
     private lateinit var btnResetPrompt: Button
     private lateinit var etTestInput: EditText
     private lateinit var btnTestCorrect: Button
@@ -48,10 +51,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnOpenAccessibility: Button
 
     private val availableModels = mutableListOf(
-        "gemini-3.8-flash",
-        "gemini-flash-latest",
-        "gemini-3.5-flash-lite",
-        "gemini-3.1-pro-preview"
+        "gemini-2.5-flash",
+        "gemini-2.0-flash",
+        "gemini-1.5-flash",
+        "gemini-flash-latest"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -70,6 +73,9 @@ class MainActivity : AppCompatActivity() {
         tvStatusBadge = findViewById(R.id.tvStatusBadge)
         actvModel = findViewById(R.id.actvModel)
         etSystemPrompt = findViewById(R.id.etSystemPrompt)
+        btnPromptSwiss = findViewById(R.id.btnPromptSwiss)
+        btnPromptStandard = findViewById(R.id.btnPromptStandard)
+        btnSavePrompt = findViewById(R.id.btnSavePrompt)
         btnResetPrompt = findViewById(R.id.btnResetPrompt)
         btnOpenAccessibility = findViewById(R.id.btnOpenAccessibility)
         etTestInput = findViewById(R.id.etTestInput)
@@ -86,6 +92,14 @@ class MainActivity : AppCompatActivity() {
         val apiKey = AppPreferences.getApiKey(this)
         etApiKey.setText(apiKey)
         updateStatusBadge(apiKey.isNotBlank())
+
+        val cached = AppPreferences.getCachedModels(this)
+        if (cached.isNotEmpty()) {
+            availableModels.clear()
+            availableModels.addAll(cached)
+            val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, availableModels)
+            actvModel.setAdapter(adapter)
+        }
 
         val currentModel = AppPreferences.getModel(this)
         actvModel.setText(currentModel, false)
@@ -106,11 +120,15 @@ class MainActivity : AppCompatActivity() {
             if (model.isNotBlank()) {
                 AppPreferences.setModel(this, model)
             }
+            val prompt = etSystemPrompt.text.toString().trim()
+            if (prompt.isNotBlank()) {
+                AppPreferences.setSystemPrompt(this, prompt)
+            }
             updateStatusBadge(key.isNotBlank())
 
             if (key.isNotBlank()) {
                 refreshModelsDynamically(key)
-                Toast.makeText(this, "Gespeichert. Modelle werden von Google geladen...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Gespeichert. Modelle werden von Google aktualisiert...", Toast.LENGTH_SHORT).show()
             } else {
                 Toast.makeText(this, "Einstellungen gespeichert.", Toast.LENGTH_SHORT).show()
             }
@@ -125,7 +143,7 @@ class MainActivity : AppCompatActivity() {
             if (position in 0 until availableModels.size) {
                 val selectedModel = availableModels[position]
                 AppPreferences.setModel(this, selectedModel)
-                Toast.makeText(this, "Modell geändert: $selectedModel", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Modell gewählt: $selectedModel", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -133,6 +151,26 @@ class MainActivity : AppCompatActivity() {
             val model = text?.toString()?.trim().orEmpty()
             if (model.isNotBlank()) {
                 AppPreferences.setModel(this, model)
+            }
+        }
+
+        btnPromptSwiss.setOnClickListener {
+            etSystemPrompt.setText(AppPreferences.PROMPT_SWISS)
+            AppPreferences.setSystemPrompt(this, AppPreferences.PROMPT_SWISS)
+            Toast.makeText(this, "Schweizer Rechtschreibung aktiviert (kein ß, immer ss).", Toast.LENGTH_SHORT).show()
+        }
+
+        btnPromptStandard.setOnClickListener {
+            etSystemPrompt.setText(AppPreferences.PROMPT_STANDARD)
+            AppPreferences.setSystemPrompt(this, AppPreferences.PROMPT_STANDARD)
+            Toast.makeText(this, "Standard-Rechtschreibung aktiviert (mit ß).", Toast.LENGTH_SHORT).show()
+        }
+
+        btnSavePrompt.setOnClickListener {
+            val prompt = etSystemPrompt.text.toString().trim()
+            if (prompt.isNotBlank()) {
+                AppPreferences.setSystemPrompt(this, prompt)
+                Toast.makeText(this, "Prompt gespeichert.", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -146,7 +184,7 @@ class MainActivity : AppCompatActivity() {
         btnResetPrompt.setOnClickListener {
             etSystemPrompt.setText(AppPreferences.DEFAULT_PROMPT)
             AppPreferences.setSystemPrompt(this, AppPreferences.DEFAULT_PROMPT)
-            Toast.makeText(this, "Standard-Prompt wiederhergestellt.", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Standard wiederhergestellt (Schweizer Rechtschreibung).", Toast.LENGTH_SHORT).show()
         }
 
         btnOpenAccessibility.setOnClickListener {
@@ -180,6 +218,7 @@ class MainActivity : AppCompatActivity() {
             val result = GeminiService.fetchAvailableModels(apiKey)
             result.onSuccess { liveModels ->
                 if (liveModels.isNotEmpty()) {
+                    AppPreferences.setCachedModels(this@MainActivity, liveModels)
                     availableModels.clear()
                     availableModels.addAll(liveModels)
 
