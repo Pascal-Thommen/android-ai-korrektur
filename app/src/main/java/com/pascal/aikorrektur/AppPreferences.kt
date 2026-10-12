@@ -5,25 +5,19 @@ import android.content.SharedPreferences
 import org.json.JSONArray
 
 /**
- * Verwaltet lokale Einstellungen, Prompt-Vorlagen und den Gemini API-Key.
+ * Manages preferences, Gemini API key, model selection, and custom prompt instructions.
  */
 object AppPreferences {
     private const val PREFS_NAME = "ai_korrektur_preferences"
     private const val KEY_API_KEY = "gemini_api_key"
     private const val KEY_MODEL = "gemini_model"
-    private const val KEY_SYSTEM_PROMPT = "system_prompt"
+    private const val KEY_CUSTOM_INSTRUCTIONS = "custom_instructions"
+    private const val KEY_LEGACY_PROMPT = "system_prompt"
     private const val KEY_CACHED_MODELS = "cached_models"
 
     const val DEFAULT_MODEL = "gemini-2.5-flash"
 
-    // Prompt Vorlagen:
-    const val PROMPT_SWISS = "Du bist ein professioneller Text-Korrektur-Assistent. Korrigiere Grammatik, Rechtschreibung, Zeichensetzung und Ausdruck des folgenden Textes. Behalte den ursprünglichen Sinn, Tonfall und die Sprache bei. Verwende in deutschem Text niemals das scharfe S (ß), sondern immer Doppel-S (ss). Antworte ausschliesslich mit dem korrigierten Text, ohne Erklärungen, ohne Begrüssung, ohne Formatierungszeichen und ohne Anführungszeichen."
-    const val PROMPT_STANDARD = "Du bist ein professioneller Text-Korrektur-Assistent. Korrigiere Grammatik, Rechtschreibung, Zeichensetzung und Ausdruck des folgenden Textes. Behalte den ursprünglichen Sinn, Tonfall und die Sprache bei. Antworte ausschließlich mit dem korrigierten Text, ohne Erklärungen, ohne Begrüßung, ohne Formatierungszeichen und ohne Anführungszeichen."
-
-    // Standard ist Schweizer Rechtschreibung (kein ß) für Pascal
-    const val DEFAULT_PROMPT = PROMPT_SWISS
-
-    private const val OLD_LEGACY_PROMPT = "Du bist ein professioneller Text-Korrektur-Assistent. Korrigiere Grammatik, Rechtschreibung, Zeichensetzung und Ausdruck des folgenden Textes. Behalte den ursprünglichen Sinn, Tonfall und die Sprache bei. Antworte ausschließlich mit dem korrigierten Text, ohne Erklärungen, ohne Begrüßung, ohne Formatierungszeichen und ohne Anführungszeichen."
+    const val BASE_SYSTEM_PROMPT = "You are a professional proofreading assistant. Correct grammar, spelling, punctuation, and wording of the input text. Maintain the original language, tone, and meaning. Output only the corrected text without explanations, intros, formatting, or quotation marks."
 
     private fun getPrefs(context: Context): SharedPreferences {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -39,7 +33,6 @@ object AppPreferences {
 
     fun getModel(context: Context): String {
         val saved = getPrefs(context).getString(KEY_MODEL, DEFAULT_MODEL) ?: DEFAULT_MODEL
-        // Migration von frueheren Platzhaltern
         if (saved == "gemini-3.8-flash" || saved.isBlank()) {
             setModel(context, DEFAULT_MODEL)
             return DEFAULT_MODEL
@@ -51,18 +44,41 @@ object AppPreferences {
         getPrefs(context).edit().putString(KEY_MODEL, model.trim()).apply()
     }
 
-    fun getSystemPrompt(context: Context): String {
-        val saved = getPrefs(context).getString(KEY_SYSTEM_PROMPT, DEFAULT_PROMPT) ?: DEFAULT_PROMPT
-        // Automatische Aktualisierung vom alten Standard-Prompt ohne Schweiz-Regel
-        if (saved == OLD_LEGACY_PROMPT) {
-            setSystemPrompt(context, DEFAULT_PROMPT)
-            return DEFAULT_PROMPT
+    fun getCustomInstructions(context: Context): String {
+        val prefs = getPrefs(context)
+        val custom = prefs.getString(KEY_CUSTOM_INSTRUCTIONS, null)
+        if (custom != null) {
+            return custom.trim()
         }
-        return saved
+        // Migration von altem system_prompt falls vorhanden
+        val legacy = prefs.getString(KEY_LEGACY_PROMPT, "")?.trim().orEmpty()
+        if (legacy.isNotBlank() && !legacy.startsWith("You are a professional") && !legacy.startsWith("Du bist ein professioneller")) {
+            setCustomInstructions(context, legacy)
+            return legacy
+        }
+        return ""
     }
 
+    fun setCustomInstructions(context: Context, instructions: String) {
+        getPrefs(context).edit().putString(KEY_CUSTOM_INSTRUCTIONS, instructions.trim()).apply()
+    }
+
+    /**
+     * Builds the complete effective prompt combining the universal base prompt and custom user instructions.
+     */
+    fun getEffectivePrompt(context: Context): String {
+        val custom = getCustomInstructions(context)
+        return if (custom.isNotBlank()) {
+            "$BASE_SYSTEM_PROMPT\n\nAdditional user rules:\n$custom"
+        } else {
+            BASE_SYSTEM_PROMPT
+        }
+    }
+
+    fun getSystemPrompt(context: Context): String = getEffectivePrompt(context)
+
     fun setSystemPrompt(context: Context, prompt: String) {
-        getPrefs(context).edit().putString(KEY_SYSTEM_PROMPT, prompt.trim()).apply()
+        setCustomInstructions(context, prompt)
     }
 
     fun getCachedModels(context: Context): List<String> {

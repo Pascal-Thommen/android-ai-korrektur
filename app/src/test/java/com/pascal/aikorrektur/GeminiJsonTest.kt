@@ -3,7 +3,6 @@ package com.pascal.aikorrektur
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -12,8 +11,8 @@ class GeminiJsonTest {
 
     @Test
     fun testGeminiPayloadStructure() {
-        val inputText = "Das ist ein Tesst mit fehler."
-        val systemInstruction = AppPreferences.DEFAULT_PROMPT
+        val inputText = "This is a test with mistaks."
+        val systemInstruction = AppPreferences.BASE_SYSTEM_PROMPT
 
         val payload = JSONObject().apply {
             put("systemInstruction", JSONObject().apply {
@@ -57,14 +56,10 @@ class GeminiJsonTest {
     }
 
     @Test
-    fun testSwissPromptRequiresDoubleS() {
-        val prompt = AppPreferences.PROMPT_SWISS
-        assertTrue(prompt.contains("Doppel-S (ss)"))
-        assertTrue(prompt.contains("niemals das scharfe S"))
-        assertTrue(prompt.contains("ausschliesslich"))
-        assertTrue(prompt.contains("Begrüssung"))
-        assertFalse(prompt.contains("ausschließlich"))
-        assertFalse(prompt.contains("Begrüßung"))
+    fun testBasePromptIsLanguageAgnostic() {
+        val basePrompt = AppPreferences.BASE_SYSTEM_PROMPT
+        assertTrue(basePrompt.contains("Maintain the original language"))
+        assertTrue(basePrompt.contains("professional proofreading assistant"))
     }
 
     @Test

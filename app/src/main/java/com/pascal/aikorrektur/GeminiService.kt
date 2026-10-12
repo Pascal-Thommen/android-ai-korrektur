@@ -98,7 +98,7 @@ object GeminiService {
         apiKey: String,
         inputText: String,
         model: String = AppPreferences.DEFAULT_MODEL,
-        systemInstruction: String = AppPreferences.DEFAULT_PROMPT,
+        systemInstruction: String = AppPreferences.BASE_SYSTEM_PROMPT,
         onFallbackModelUsed: ((String) -> Unit)? = null
     ): Result<String> = withContext(Dispatchers.IO) {
         if (apiKey.isBlank()) {

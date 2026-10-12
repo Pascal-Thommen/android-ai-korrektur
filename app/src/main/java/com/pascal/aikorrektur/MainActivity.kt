@@ -38,11 +38,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnGetApiKey: Button
     private lateinit var tvStatusBadge: TextView
     private lateinit var actvModel: AutoCompleteTextView
-    private lateinit var etSystemPrompt: EditText
-    private lateinit var btnPromptSwiss: Button
-    private lateinit var btnPromptStandard: Button
-    private lateinit var btnSavePrompt: Button
-    private lateinit var btnResetPrompt: Button
+    private lateinit var etCustomInstructions: EditText
+    private lateinit var btnSaveInstructions: Button
+    private lateinit var btnClearInstructions: Button
     private lateinit var etTestInput: EditText
     private lateinit var btnTestCorrect: Button
     private lateinit var pbTestProgress: ProgressBar
@@ -72,11 +70,9 @@ class MainActivity : AppCompatActivity() {
         btnGetApiKey = findViewById(R.id.btnGetApiKey)
         tvStatusBadge = findViewById(R.id.tvStatusBadge)
         actvModel = findViewById(R.id.actvModel)
-        etSystemPrompt = findViewById(R.id.etSystemPrompt)
-        btnPromptSwiss = findViewById(R.id.btnPromptSwiss)
-        btnPromptStandard = findViewById(R.id.btnPromptStandard)
-        btnSavePrompt = findViewById(R.id.btnSavePrompt)
-        btnResetPrompt = findViewById(R.id.btnResetPrompt)
+        etCustomInstructions = findViewById(R.id.etCustomInstructions)
+        btnSaveInstructions = findViewById(R.id.btnSaveInstructions)
+        btnClearInstructions = findViewById(R.id.btnClearInstructions)
         btnOpenAccessibility = findViewById(R.id.btnOpenAccessibility)
         etTestInput = findViewById(R.id.etTestInput)
         btnTestCorrect = findViewById(R.id.btnTestCorrect)
@@ -104,8 +100,8 @@ class MainActivity : AppCompatActivity() {
         val currentModel = AppPreferences.getModel(this)
         actvModel.setText(currentModel, false)
 
-        val prompt = AppPreferences.getSystemPrompt(this)
-        etSystemPrompt.setText(prompt)
+        val custom = AppPreferences.getCustomInstructions(this)
+        etCustomInstructions.setText(custom)
 
         if (apiKey.isNotBlank()) {
             refreshModelsDynamically(apiKey)
@@ -120,17 +116,15 @@ class MainActivity : AppCompatActivity() {
             if (model.isNotBlank()) {
                 AppPreferences.setModel(this, model)
             }
-            val prompt = etSystemPrompt.text.toString().trim()
-            if (prompt.isNotBlank()) {
-                AppPreferences.setSystemPrompt(this, prompt)
-            }
+            val instructions = etCustomInstructions.text.toString().trim()
+            AppPreferences.setCustomInstructions(this, instructions)
             updateStatusBadge(key.isNotBlank())
 
             if (key.isNotBlank()) {
                 refreshModelsDynamically(key)
-                Toast.makeText(this, "Gespeichert. Modelle werden von Google aktualisiert...", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Saved. Updating models...", Toast.LENGTH_SHORT).show()
             } else {
-                Toast.makeText(this, "Einstellungen gespeichert.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Settings saved.", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -143,7 +137,7 @@ class MainActivity : AppCompatActivity() {
             if (position in 0 until availableModels.size) {
                 val selectedModel = availableModels[position]
                 AppPreferences.setModel(this, selectedModel)
-                Toast.makeText(this, "Modell gewählt: $selectedModel", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Model: $selectedModel", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -154,37 +148,20 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        btnPromptSwiss.setOnClickListener {
-            etSystemPrompt.setText(AppPreferences.PROMPT_SWISS)
-            AppPreferences.setSystemPrompt(this, AppPreferences.PROMPT_SWISS)
-            Toast.makeText(this, "Schweizer Rechtschreibung aktiviert (kein ß, immer ss).", Toast.LENGTH_SHORT).show()
+        btnSaveInstructions.setOnClickListener {
+            val text = etCustomInstructions.text.toString().trim()
+            AppPreferences.setCustomInstructions(this, text)
+            Toast.makeText(this, "Instructions saved.", Toast.LENGTH_SHORT).show()
         }
 
-        btnPromptStandard.setOnClickListener {
-            etSystemPrompt.setText(AppPreferences.PROMPT_STANDARD)
-            AppPreferences.setSystemPrompt(this, AppPreferences.PROMPT_STANDARD)
-            Toast.makeText(this, "Standard-Rechtschreibung aktiviert (mit ß).", Toast.LENGTH_SHORT).show()
+        btnClearInstructions.setOnClickListener {
+            etCustomInstructions.setText("")
+            AppPreferences.setCustomInstructions(this, "")
+            Toast.makeText(this, "Instructions cleared.", Toast.LENGTH_SHORT).show()
         }
 
-        btnSavePrompt.setOnClickListener {
-            val prompt = etSystemPrompt.text.toString().trim()
-            if (prompt.isNotBlank()) {
-                AppPreferences.setSystemPrompt(this, prompt)
-                Toast.makeText(this, "Prompt gespeichert.", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        etSystemPrompt.doAfterTextChanged { text ->
-            val prompt = text?.toString()?.trim().orEmpty()
-            if (prompt.isNotBlank()) {
-                AppPreferences.setSystemPrompt(this, prompt)
-            }
-        }
-
-        btnResetPrompt.setOnClickListener {
-            etSystemPrompt.setText(AppPreferences.DEFAULT_PROMPT)
-            AppPreferences.setSystemPrompt(this, AppPreferences.DEFAULT_PROMPT)
-            Toast.makeText(this, "Standard wiederhergestellt (Schweizer Rechtschreibung).", Toast.LENGTH_SHORT).show()
+        etCustomInstructions.doAfterTextChanged { text ->
+            AppPreferences.setCustomInstructions(this, text?.toString()?.trim().orEmpty())
         }
 
         btnOpenAccessibility.setOnClickListener {
@@ -192,7 +169,7 @@ class MainActivity : AppCompatActivity() {
             startActivity(intent)
             Toast.makeText(
                 this,
-                "Wähle 'KI-Korrektur' in der Liste und aktiviere den Schalter.",
+                "Select 'AI Proofreader' in the list and enable it.",
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -205,9 +182,9 @@ class MainActivity : AppCompatActivity() {
             val result = tvTestResult.text.toString()
             if (result.isNotBlank()) {
                 val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("Korrigierter Text", result)
+                val clip = ClipData.newPlainText("Corrected Text", result)
                 clipboard.setPrimaryClip(clip)
-                Toast.makeText(this, "In Zwischenablage kopiert.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Copied to clipboard.", Toast.LENGTH_SHORT).show()
             }
         }
     }

@@ -126,12 +126,12 @@
                     android:textSize="14sp" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- System Prompt -->
+            <!-- Custom Instructions -->
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:text="@string/label_system_prompt"
+                android:text="@string/label_custom_instructions"
                 android:textColor="@color/on_surface"
                 android:textSize="14sp"
                 android:textStyle="bold" />
@@ -140,44 +140,18 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="Hier kannst du die KI-Instruktion anpassen (z. B. Schweizer Rechtschreibung ohne ß):"
+                android:text="@string/desc_custom_instructions"
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:orientation="horizontal">
-
-                <Button
-                    android:id="@+id/btnPromptSwiss"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginEnd="4dp"
-                    android:text="🇨🇭 Schweiz (kein ß)"
-                    android:textSize="11sp" />
-
-                <Button
-                    android:id="@+id/btnPromptStandard"
-                    style="?attr/materialButtonOutlinedStyle"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="4dp"
-                    android:text="🇩🇪 Standard (mit ß)"
-                    android:textSize="11sp" />
-            </LinearLayout>
-
             <EditText
-                android:id="@+id/etSystemPrompt"
+                android:id="@+id/etCustomInstructions"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
                 android:background="@drawable/bg_card"
                 android:gravity="top|start"
+                android:hint="@string/hint_custom_instructions"
                 android:minLines="3"
                 android:padding="12dp"
                 android:textColor="@color/on_surface"
@@ -190,24 +164,24 @@
                 android:orientation="horizontal">
 
                 <Button
-                    android:id="@+id/btnSavePrompt"
+                    android:id="@+id/btnSaveInstructions"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginEnd="4dp"
                     android:backgroundTint="@color/primary"
-                    android:text="Prompt speichern"
+                    android:text="@string/btn_save_instructions"
                     android:textColor="@android:color/white"
                     android:textSize="12sp" />
 
                 <Button
-                    android:id="@+id/btnResetPrompt"
+                    android:id="@+id/btnClearInstructions"
                     style="?attr/materialButtonOutlinedStyle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:layout_marginStart="4dp"
-                    android:text="@string/btn_reset_prompt"
+                    android:text="@string/btn_clear_instructions"
                     android:textSize="12sp" />
             </LinearLayout>
         </LinearLayout>
